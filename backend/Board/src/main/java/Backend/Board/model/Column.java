@@ -1,6 +1,9 @@
 package Backend.Board.model;
 
+import java.util.ArrayList;
 import java.util.List;
+
+import org.hibernate.annotations.BatchSize;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -27,5 +30,6 @@ public class Column {
 
     @OneToMany(mappedBy = "column", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
-    private List<Task> tasks;
+    @BatchSize(size = 100) // Fetch tasks in batches of 100
+    private List<Task> tasks = new ArrayList<>();
 }
