@@ -3,6 +3,7 @@ package Backend.Board;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -19,11 +20,11 @@ public class BoardApplication {
 	@Bean
 	public WebMvcConfigurer corsConfigurer() {
 		return new WebMvcConfigurer() {
-			@SuppressWarnings("null")
 			@Override
 			public void addCorsMappings(CorsRegistry registry) {
-				registry.addMapping("/**").allowedOrigins("http://localhost:4200").allowedMethods("GET", "POST", "PUT",
-						"DELETE");
+				registry.addMapping("/**")
+						.allowedOrigins("http://localhost:4200")
+						.allowedMethods("GET", "POST", "PUT", "DELETE");
 			}
 		};
 	}

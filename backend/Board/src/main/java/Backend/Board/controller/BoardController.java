@@ -1,20 +1,15 @@
 package Backend.Board.controller;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Random;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
 import Backend.Board.dto.BoardDTO;
-import Backend.Board.dto.ColumnDTO;
-import Backend.Board.dto.TaskPreviewDTO;
 import Backend.Board.mappers.BoardMapper;
 import Backend.Board.model.Board;
+import Backend.Board.model.Column;
+import Backend.Board.model.Task;
+import Backend.Board.repository.BoardRepository;
+import Backend.Board.repository.TaskRepository;
+import Backend.Board.service.BoardWebSocketService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.Message;
@@ -24,21 +19,25 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-import Backend.Board.model.Column;
-import Backend.Board.model.Task;
-import Backend.Board.repository.BoardRepository;
-import Backend.Board.repository.TaskRepository;
-import jakarta.transaction.Transactional;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @Controller
 @RequestMapping("/boards")
+@SecurityRequirement(name = "bearerAuth")
 public class BoardController {
 
     @Autowired
     private BoardRepository boardRepository;
+
     @Autowired
-    private TaskRepository taskRepository;
+    private BoardWebSocketService boardWebSocketService;
 
     private static final List<String> COLUMN_NAMES = Arrays.asList("Backlog", "To Do", "In Progress", "Review", "Done");
 
@@ -54,73 +53,11 @@ public class BoardController {
 
     @MessageMapping("/board/{boardId}/update")
     @SendTo("/topic/board/{boardId}")
-    @Transactional
     public BoardDTO updateBoard(
             @DestinationVariable Long boardId,
             Message<BoardDTO> message
     ) {
-        System.out.println("updateBoard for board: " + boardId);
-
-        BoardDTO updatedBoardDTO = message.getPayload();
-        System.out.println("Received board update: " + updatedBoardDTO);
-
-        Board existingBoard = boardRepository.findById(boardId)
-                .orElseThrow(() -> new RuntimeException("Board not found with id: " + boardId));
-
-        existingBoard.setName(updatedBoardDTO.getName());
-
-        updateColumns(existingBoard, updatedBoardDTO.getColumns());
-
-        Board savedBoard = boardRepository.save(existingBoard);
-
-        return BoardMapper.toDTO(savedBoard);
-    }
-
-    private void updateColumns(Board existingBoard, List<ColumnDTO> updatedColumns) {
-        Map<Long, Column> existingColumnsMap = existingBoard.getColumns().stream()
-                .collect(Collectors.toMap(Column::getId, c -> c));
-
-        List<Column> newColumns = new ArrayList<>();
-
-        for (ColumnDTO columnDTO : updatedColumns) {
-            Column column = existingColumnsMap.getOrDefault(columnDTO.getId(), new Column());
-            column.setName(columnDTO.getName());
-            column.setBoard(existingBoard);
-
-            updateTasks(column, columnDTO.getTasks());
-
-            newColumns.add(column);
-            existingColumnsMap.remove(column.getId());
-        }
-
-        existingBoard.getColumns().removeAll(existingColumnsMap.values());
-
-        existingBoard.getColumns().clear();
-        existingBoard.getColumns().addAll(newColumns);
-    }
-
-    private void updateTasks(Column column, List<TaskPreviewDTO> updatedTasks) {
-        Map<Long, Task> existingTasksMap = column.getTasks().stream()
-                .collect(Collectors.toMap(Task::getId, t -> t));
-
-        List<Task> newTasks = new ArrayList<>();
-
-        for (TaskPreviewDTO taskDTO : updatedTasks) {
-            Task task = existingTasksMap.getOrDefault(taskDTO.getId(), new Task());
-            Optional<Task> taksInRepo = taskRepository.findById(taskDTO.getId());
-            task.setColumn(column);
-            task.setTitle(taksInRepo.get().getTitle());
-            task.setDescription(taksInRepo.get().getDescription());
-            task.setComments(taksInRepo.get().getComments());
-
-            newTasks.add(task);
-            existingTasksMap.remove(task.getId());
-        }
-
-        column.getTasks().removeAll(existingTasksMap.values());
-
-        column.getTasks().clear();
-        column.getTasks().addAll(newTasks);
+        return boardWebSocketService.handleBoardUpdate(boardId, message.getPayload());
     }
 
     @PostMapping
@@ -138,7 +75,7 @@ public class BoardController {
         try {
             Random random = new Random();
             Board board = new Board();
-            board.setName("Board-" + UUID.randomUUID().toString().substring(0, 8)); // Shorter ID
+            board.setName("Board-" + UUID.randomUUID().toString().substring(0, 8));
 
             List<Column> columns = new ArrayList<>();
             int columnCount = 2 + random.nextInt(4);
