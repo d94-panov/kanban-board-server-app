@@ -13,6 +13,7 @@ import Backend.Board.dto.BoardDTO;
 import Backend.Board.dto.CommentDTO;
 import Backend.Board.dto.TaskDTO;
 import Backend.Board.mappers.BoardMapper;
+import Backend.Board.mappers.UserMapper;
 import Backend.Board.model.Task;
 import Backend.Board.repository.BoardRepository;
 import Backend.Board.repository.TaskRepository;
@@ -35,15 +36,19 @@ public class TaskController {
         return taskRepository.findById(id)
                 .map(task -> {
                     List<CommentDTO> commentDTOs = task.getComments().stream()
-                            .map(comment -> new CommentDTO(comment.getId(), comment.getContent()))
+                            .map(comment -> new CommentDTO(
+                                    comment.getId(),
+                                    comment.getContent(),
+                                    comment.getCreatedAt(),
+                                    UserMapper.toDTO(comment.getUser()),
+                                    comment.getTask().getId()))
                             .collect(Collectors.toList());
 
                     return ResponseEntity.ok(new TaskDTO(
                             task.getId(),
                             task.getTitle(),
                             task.getDescription(),
-                            commentDTOs
-                    ));
+                            commentDTOs));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -82,7 +87,7 @@ public class TaskController {
                 .map(task -> {
                     Long boardId = task.getColumn().getBoard().getId();
                     taskRepository.delete(task);
-                    taskRepository.flush();  // Critical for immediate sync
+                    taskRepository.flush(); // Critical for immediate sync
 
                     sendBoardUpdateDirect(boardId);
                     return ResponseEntity.noContent().build();
@@ -96,8 +101,7 @@ public class TaskController {
                     BoardDTO dto = BoardMapper.toDTO(board);
                     messagingTemplate.convertAndSend(
                             "/topic/board/" + boardId,
-                            dto
-                    );
+                            dto);
                 });
     }
 
@@ -110,8 +114,7 @@ public class TaskController {
                                 BoardDTO dto = BoardMapper.toDTO(board);
                                 messagingTemplate.convertAndSend(
                                         "/topic/board/" + boardId,
-                                        dto
-                                );
+                                        dto);
                             });
                 });
     }

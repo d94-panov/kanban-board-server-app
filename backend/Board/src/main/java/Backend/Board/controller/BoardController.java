@@ -6,7 +6,6 @@ import Backend.Board.model.Board;
 import Backend.Board.model.Column;
 import Backend.Board.model.Task;
 import Backend.Board.repository.BoardRepository;
-import Backend.Board.repository.TaskRepository;
 import Backend.Board.service.BoardWebSocketService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 

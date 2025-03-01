@@ -41,7 +41,7 @@ public class User implements UserDetails {
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
-    @JsonIgnoreProperties({ "users" }) // Add this
+    @JsonIgnoreProperties({"users"}) // Add this
     private List<Role> roles;
 
     @JsonIgnore
@@ -75,12 +75,4 @@ public class User implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
-
-//    @JsonIgnore
-//    @Override
-//    public Collection<? extends GrantedAuthority> getAuthorities() {
-//        return roles.stream()
-//                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName()))
-//                .collect(Collectors.toList());
-//    }
 }
