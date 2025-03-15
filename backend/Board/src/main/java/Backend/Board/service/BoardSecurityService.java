@@ -15,6 +15,20 @@ public class BoardSecurityService {
     @Autowired
     private UserBoardRoleRepository userBoardRoleRepository;
 
+    @Autowired
+    private BoardRoleService boardRoleService;
+
+    public boolean hasBoardPermission(Authentication authentication, Long boardId, BoardRoleType requiredRole) {
+        User user = (User) authentication.getPrincipal();
+        BoardRoleType userRole = boardRoleService.getUserRoleForBoard(user, boardId);
+        
+        return switch (requiredRole) {
+            case ADMIN -> userRole == BoardRoleType.ADMIN;
+            case WRITER -> userRole == BoardRoleType.ADMIN || userRole == BoardRoleType.WRITER;
+            case READER -> userRole != null;
+        };
+    }
+
     public boolean hasBoardAccess(Authentication authentication, Long boardId) {
         User user = (User) authentication.getPrincipal();
         return userBoardRoleRepository.existsByUserAndBoardIdAndRoleIn(

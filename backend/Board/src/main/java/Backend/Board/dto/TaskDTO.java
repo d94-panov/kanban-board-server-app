@@ -14,4 +14,6 @@ public class TaskDTO {
     private String title;
     private String description;
     private List<CommentDTO> comments;
+    private UserDTO createdBy;
+    private UserDTO assignee;
 }

@@ -17,6 +17,8 @@ public class TaskMapper {
         TaskDTO taskDTO = new TaskDTO();
         taskDTO.setId(task.getId());
         taskDTO.setTitle(task.getTitle());
+        taskDTO.setCreatedBy(UserMapper.toDTO(task.getCreatedBy()));
+        taskDTO.setAssignee(UserMapper.toDTO(task.getAssignee()));
         taskDTO.setDescription(task.getDescription());
         if (task.getComments() != null) {
             List<CommentDTO> commentDTOs = task.getComments().stream()
@@ -44,6 +46,8 @@ public class TaskMapper {
         Task task = new Task();
         task.setId(taskDTO.getId());
         task.setTitle(taskDTO.getTitle());
+        task.setCreatedBy(UserMapper.toEntity(taskDTO.getCreatedBy()));
+        task.setAssignee(UserMapper.toEntity(taskDTO.getAssignee()));
         task.setDescription(taskDTO.getDescription());
         if (taskDTO.getComments() != null) {
             List<Comment> comments = taskDTO.getComments().stream()

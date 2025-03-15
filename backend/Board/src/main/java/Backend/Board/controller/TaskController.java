@@ -7,16 +7,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import Backend.Board.dto.BoardDTO;
 import Backend.Board.dto.CommentDTO;
 import Backend.Board.dto.TaskDTO;
+import Backend.Board.exception.ResourceNotFoundException;
 import Backend.Board.mappers.BoardMapper;
 import Backend.Board.mappers.UserMapper;
+import Backend.Board.model.Board;
+import Backend.Board.model.Column;
 import Backend.Board.model.Task;
+import Backend.Board.model.User;
 import Backend.Board.repository.BoardRepository;
+import Backend.Board.repository.ColumnRepository;
 import Backend.Board.repository.TaskRepository;
+import Backend.Board.repository.UserRepository;
 
 @RestController
 @RequestMapping("/tasks")
@@ -30,6 +38,11 @@ public class TaskController {
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired ColumnRepository columnRepository;
 
     @GetMapping("/{id}")
     public ResponseEntity<TaskDTO> getTaskById(@PathVariable Long id) {
@@ -48,19 +61,46 @@ public class TaskController {
                             task.getId(),
                             task.getTitle(),
                             task.getDescription(),
-                            commentDTOs));
+                            commentDTOs,
+                            UserMapper.toDTO(task.getCreatedBy()),
+                            UserMapper.toDTO(task.getAssignee()))
+                            );
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping
-    public ResponseEntity<Task> createTask(@RequestBody Task task) {
+     @PostMapping
+    public ResponseEntity<Task> createTask(
+            @RequestParam Long boardId,
+            @RequestParam Long columnId,
+            @RequestBody Task task,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        // Fetch the board and column
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Board not found"));
+        Column column = columnRepository.findById(columnId)
+                .orElseThrow(() -> new ResourceNotFoundException("Column not found"));
+
+        // Fetch the user who created the task
+        User creator = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Set the task's column and createdBy user
+        task.setColumn(column);
+        task.setCreatedBy(creator);
+
+        // Validate the task title
         if (task.getTitle() == null || task.getTitle().trim().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
 
+        // Save the task
         Task savedTask = taskRepository.save(task);
-        sendBoardUpdate(savedTask.getId());
+
+        // Send the updated board state via WebSocket
+        sendBoardUpdate(boardId);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(savedTask);
     }
 

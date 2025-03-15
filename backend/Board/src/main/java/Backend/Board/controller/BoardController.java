@@ -1,11 +1,16 @@
 package Backend.Board.controller;
 
 import Backend.Board.dto.BoardDTO;
+import Backend.Board.exception.ResourceNotFoundException;
 import Backend.Board.mappers.BoardMapper;
 import Backend.Board.model.Board;
+import Backend.Board.model.BoardRoleType;
 import Backend.Board.model.Column;
 import Backend.Board.model.Task;
+import Backend.Board.model.User;
 import Backend.Board.repository.BoardRepository;
+import Backend.Board.repository.UserRepository;
+import Backend.Board.service.BoardRoleService;
 import Backend.Board.service.BoardWebSocketService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
@@ -15,6 +20,7 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,6 +44,12 @@ public class BoardController {
     @Autowired
     private BoardWebSocketService boardWebSocketService;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private BoardRoleService boardRoleService;
+
     private static final List<String> COLUMN_NAMES = Arrays.asList("Backlog", "To Do", "In Progress", "Review", "Done");
 
     @GetMapping
@@ -54,8 +66,7 @@ public class BoardController {
     @SendTo("/topic/board/{boardId}")
     public BoardDTO updateBoard(
             @DestinationVariable Long boardId,
-            Message<BoardDTO> message
-    ) {
+            Message<BoardDTO> message) {
         return boardWebSocketService.handleBoardUpdate(boardId, message.getPayload());
     }
 
@@ -67,6 +78,30 @@ public class BoardController {
     @DeleteMapping
     public void deleteBoard(@RequestParam Long id) {
         boardRepository.deleteById(id);
+    }
+
+    @PostMapping("/{boardId}/users/{userId}/role")
+    @PreAuthorize("@boardSecurityService.hasBoardAccess(authentication, #boardId)")
+    public ResponseEntity<?> assignUserRoleToBoard(
+            @PathVariable Long boardId,
+            @PathVariable Long userId,
+            @RequestParam BoardRoleType role) {
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Board not found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        boardRoleService.assignRoleToUser(user, board, role);
+        return ResponseEntity.ok("Role assigned");
+    }
+
+    @GetMapping("/{boardId}/users/{userId}/role")
+    public ResponseEntity<BoardRoleType> getUserBoardRole(
+            @PathVariable Long boardId,
+            @PathVariable Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return ResponseEntity.ok(boardRoleService.getUserRoleForBoard(user, boardId));
     }
 
     @PostMapping("/random")
