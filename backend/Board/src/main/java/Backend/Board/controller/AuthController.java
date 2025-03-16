@@ -62,7 +62,6 @@ public class AuthController {
         user.setPassword(passwordEncoder().encode(userDTO.getPassword()));
         user.setName(userDTO.getName());
 
-        // Assign default role if needed
         Role userRole = roleRepository.findByName("USER")
                 .orElseThrow(() -> new RuntimeException("Default role not found"));
         user.setRoles(List.of(userRole));
@@ -91,10 +90,8 @@ public class AuthController {
 class AuthenticationRequest {
     private String username;
     private String password;
-    // getters and setters
 }
 
 class AuthenticationResponse {
     private String token;
-    // constructor and getter
 }
